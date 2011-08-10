@@ -23,8 +23,8 @@
  * @subpackage    mongodb.models.datasources
  * @license       http://www.opensource.org/licenses/mit-license.php The MIT License
  */
-
 App::import('Datasource', 'DboSource');
+
 
 /**
  * MongoDB Source
@@ -1241,7 +1241,7 @@ class MongodbSource extends DboSource {
  */
 	public function logQuery($query, $args = array()) {
 		if ($args) {
-			$this->_stringify($args);
+			$args = $this->_stringify($args);
 			$query = String::insert($query, $args);
 		}
 		$this->took = round((microtime(true) - $this->_startTime) * 1000, 0);
@@ -1297,31 +1297,38 @@ class MongodbSource extends DboSource {
  * @return array
  * @access protected
  */
-	protected function _stringify(&$args = array(), $level = 0) {
-		foreach($args as &$arg) {
+	protected function _stringify(&$args = array(), &$result = array(), $level = 0) {                
+		foreach($args as $idx => &$arg) {
+                        $result[$idx] = array();
 			if (is_array($arg)) {
-				$this->_stringify($arg, $level + 1);
+				$result[$idx] = $this->_stringify($arg, $result[$idx], $level + 1);
 			} elseif (is_object($arg) && is_callable(array($arg, '__toString'))) {
 				$class = get_class($arg);
 				if ($class === 'MongoId') {
-					$arg = 'ObjectId(' . $arg->__toString() . ')';
+					$result[$idx] = 'ObjectId(' . $arg->__toString() . ')';
 				} elseif ($class === 'MongoRegex') {
-					$arg = '_regexstart_' . $arg->__toString() . '_regexend_';
+					$result[$idx] = '_regexstart_' . $arg->__toString() . '_regexend_';
 				} else {
-					$arg = $class . '(' . $arg->__toString() . ')';
+					$result[$idx] = $class . '(' . $arg->__toString() . ')';
 				}
-			}
+			} else {
+                            $result[$idx] = $arg;
+                        }
+                        /*
+                         * final encoding, to change arrays to strings, etc.
+                         */
 			if ($level === 0) {
-				$arg = json_encode($arg);
-				if (strpos($arg, '_regexstart_')) {
-					preg_match_all('@"_regexstart_(.*?)_regexend_"@', $arg, $matches);
+				$result[$idx] = json_encode($result[$idx]);
+				if (strpos($result[$idx], '_regexstart_')) {
+					preg_match_all('@"_regexstart_(.*?)_regexend_"@', $result[$idx], $matches);
 					foreach($matches[0] as $i => $whole) {
 						$replace = stripslashes($matches[1][$i]);
-						$arg = str_replace($whole, $replace, $arg);
+						$result[$idx] = str_replace($whole, $replace, $result[$idx]);
 					}
 				}
 			}
 		}
+                return $result;
 	}
 
 /**
