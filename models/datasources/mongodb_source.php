@@ -953,19 +953,20 @@ class MongodbSource extends DboSource {
                     $this->logQuery("db.{$this->fullTableName($Model)}.count( :conditions )", compact('conditions', 'count')
                     );
                 }
-                return array(array($Model->alias => array('count' => $count)));
-            }
+                $return = array(array($Model->alias => array('count' => $count)));
+            } else {
 
-            $return = $this->_db
-                    ->selectCollection($this->fullTableName($Model))
-                    ->find($conditions, $fields)
-                    ->sort($order)
-                    ->limit($limit)
-                    ->skip($offset);
-            if ($this->fullDebug) {
-                $count = $return->count();
-                $this->logQuery("db.{$Model->useTable}.find( :conditions, :fields ).sort( :order ).limit( :limit ).skip( :offset )", compact('conditions', 'fields', 'order', 'limit', 'offset', 'count')
-                );
+                $return = $this->_db
+                        ->selectCollection($this->fullTableName($Model))
+                        ->find($conditions, $fields)
+                        ->sort($order)
+                        ->limit($limit)
+                        ->skip($offset);
+                if ($this->fullDebug) {
+                    $count = $return->count();
+                    $this->logQuery("db.{$Model->useTable}.find( :conditions, :fields ).sort( :order ).limit( :limit ).skip( :offset )", compact('conditions', 'fields', 'order', 'limit', 'offset', 'count')
+                    );
+                }
             }
         } else {
             $options = array_filter(array(
@@ -996,10 +997,8 @@ class MongodbSource extends DboSource {
         }
 
         if ($Model->findQueryType === 'count') {
-            return array(array($Model->alias => array('count' => $return->count())));
-        }
-
-        if (is_object($return)) {
+            $return = array(array($Model->alias => array('count' => $return->count())));
+        } elseif (is_object($return)) {
             $_return = array();
             while ($return->hasNext()) {
                 $mongodata = $return->getNext();
@@ -1010,10 +1009,10 @@ class MongodbSource extends DboSource {
             }
             $return = $_return;
         }
+
         if (isset($this->numRows)) {
             $Model->numRows = $this->numRows;
         }
-
         return $return;
     }
 
