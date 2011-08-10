@@ -300,7 +300,7 @@ class MongodbSource extends DboSource {
 		}
 
 		$collection = $this->_db
-			->selectCollection($Model->table);
+			->selectCollection($this->fullTableName($Model));
 		return $collection;
 	}
 
@@ -392,8 +392,8 @@ class MongodbSource extends DboSource {
 		} elseif ($this->isConnected() && is_a($Model, 'Model') && !empty($Model->Behaviors)) {
 			$Model->Behaviors->attach('Mongodb.Schemaless');
 			if (!$Model->data) {
-				if ($this->_db->selectCollection($Model->table)->count()) {
-					return $this->deriveSchemaFromData($Model, $this->_db->selectCollection($Model->table)->findOne());
+                if ($this->_db->selectCollection($this->fullTableName($Model))->count()) {
+                    return $this->deriveSchemaFromData($Model, $this->_db->selectCollection($this->fullTableName($Model))->findOne());
 				}
 			}
 		}
@@ -459,9 +459,10 @@ class MongodbSource extends DboSource {
 		}
 
 		$this->_prepareLogQuery($Model); // just sets a timer
-		try{
-			$return = $this->_db
-				->selectCollection($Model->table)
+
+        try {
+            $result = $this->_db
+                            ->selectCollection($this->fullTableName($Model))
 				->insert($data, true);
 		} catch (MongoException $e) {
 			$this->error = $e->getMessage();
@@ -559,7 +560,7 @@ class MongodbSource extends DboSource {
 		}
 		try{
 			$return = $this->_db
-				->selectCollection($Model->table)
+				->selectCollection($this->fullTableName($Model))
 				->distinct($keys, $params);
 		} catch (MongoException $e) {
 			$this->error = $e->getMessage();
@@ -608,7 +609,7 @@ class MongodbSource extends DboSource {
 
 		try{
 			$return = $this->_db
-				->selectCollection($Model->table)
+				->selectCollection($this->fullTableName($Model))
 				->group($key, $initial, $reduce, $options);
 		} catch (MongoException $e) {
 			$this->error = $e->getMessage();
@@ -641,7 +642,7 @@ class MongodbSource extends DboSource {
 
 		try{
 			$return = $this->_db
-				->selectCollection($Model->table)
+				->selectCollection($this->fullTableName($Model))
 				->ensureIndex($keys, $params);
 		} catch (MongoException $e) {
 			$this->error = $e->getMessage();
@@ -695,7 +696,7 @@ class MongodbSource extends DboSource {
 
 		try{
 			$mongoCollectionObj = $this->_db
-				->selectCollection($Model->table);
+                            ->selectCollection($this->fullTableName($Model));
 		} catch (MongoException $e) {
 			$this->error = $e->getMessage();
 			trigger_error($this->error);
@@ -778,7 +779,7 @@ class MongodbSource extends DboSource {
 		$this->_prepareLogQuery($Model); // just sets a timer
 		try{
 			$return = $this->_db
-				->selectCollection($Model->table)
+				->selectCollection($this->fullTableName($Model))
 				->update($conditions, $fields, array("multiple" => true));
 		} catch (MongoException $e) {
 			$this->error = $e->getMessage();
@@ -867,7 +868,7 @@ class MongodbSource extends DboSource {
 		}
 
 		$mongoCollectionObj = $this->_db
-			->selectCollection($Model->table);
+			->selectCollection($this->fullTableName($Model));
 
 		$this->_stripAlias($conditions, $Model->alias);
 		if (!empty($id)) {
@@ -958,19 +959,19 @@ class MongodbSource extends DboSource {
 		$this->_prepareLogQuery($Model); // just sets a timer
 		if (empty($modify)) {
 			if ($Model->findQueryType === 'count' && $fields == array('count' => true)) {
+                //fullTableName is required to get any table prefixes
 				$count = $this->_db
-					->selectCollection($Model->table)
+                    ->selectCollection($this->fullTableName($Model))
 					->count($conditions);
 				if ($this->fullDebug) {
-					$this->logQuery("db.{$Model->useTable}.count( :conditions )",
-						compact('conditions', 'count')
+                    $this->logQuery("db.{$this->fullTableName($Model)}.count( :conditions )", compact('conditions', 'count')
 					);
 				}
 				return array(array($Model->alias => array('count' => $count)));
 			}
 
-			$return = $this->_db
-				->selectCollection($Model->table)
+            $return = $this->_db
+                            ->selectCollection($this->fullTableName($Model))
 				->find($conditions, $fields)
 				->sort($order)
 				->limit($limit)
@@ -983,7 +984,7 @@ class MongodbSource extends DboSource {
 			}
 		} else {
 			$options = array_filter(array(
-				'findandmodify' => $Model->table,
+                        'findandmodify' => $this->fullTableName($Model),
 				'query' => $conditions,
 				'sort' => $order,
 				'remove' => !empty($remove),
