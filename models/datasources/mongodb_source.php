@@ -453,7 +453,7 @@ class MongodbSource extends DboSource {
         $this->_prepareLogQuery($Model); // just sets a timer
 
         try {
-            $result = $this->_db
+            $return = $this->_db
                     ->selectCollection($this->fullTableName($Model))
                     ->insert($data, true);
         } catch (MongoException $e) {
@@ -969,13 +969,19 @@ class MongodbSource extends DboSource {
                 }
             }
         } else {
+           /*
+            * Added to allow multiple operators for find and modify
+            */
+           if (preg_grep('/^\$/', array_keys($modify))) {
+                    $modify = array('$set' => $modify);
+            }
             $options = array_filter(array(
                 'findandmodify' => $this->fullTableName($Model),
                 'query' => $conditions,
                 'sort' => $order,
                 'remove' => !empty($remove),
-                'update' => array('$set' => $modify),
-                'new' => !empty($new),
+                'update' => $modify,                
+                'new' => isset($new) ? $new : true,
                 'fields' => $fields,
                 'upsert' => !empty($upsert)
                     ));
@@ -996,7 +1002,7 @@ class MongodbSource extends DboSource {
             }
         }
 
-        if ($Model->findQueryType === 'count') {
+        if (is_object($return) && $Model->findQueryType === 'count') {
             $return = array(array($Model->alias => array('count' => $return->count())));
         } elseif (is_object($return)) {
             $_return = array();
